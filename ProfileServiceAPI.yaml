@@ -1,0 +1,242 @@
+openapi: 3.0.1
+info:
+  title: Profile Service
+  description: 'Manages Profiles'
+  version: 1.0.0
+servers:
+- url: http://localhost:8080
+paths:
+  /PS/profiles:
+    get:
+      summary: Get a list of all profiles
+      responses:
+        200:
+          description: A list of profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Profile'
+    put:
+      summary: Add a new profile
+      requestBody:
+        description: The profile object, might omit the Id
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Profile'
+        required: true
+      responses:
+        200:
+          description: Profile created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        409:
+          description: EMail already in use
+        405:
+          description: Invalid profile
+
+  /PS/profiles/{id}:
+    parameters:
+        - name: id
+          in: path
+          description: ID of the profile
+          required: true
+          schema:
+            type: integer
+    delete:
+      description: Delete a profile
+      responses:
+        200:
+          description: The profile was deleted
+        404:
+          description: Such a profile doesn't exist.
+    get:
+      description: Return a single profile
+      responses:
+        200:
+          description: The profile.
+          content:
+            application/json:
+              schema:
+                    $ref: '#/components/schemas/Profile'
+        404:
+          description: Such a profile doesn't exist.
+    put:
+      description: Update a profile.
+      requestBody:
+        description: The profile object, might omit the Id
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Profile'
+        required: true
+      responses:
+        200:
+          description: Profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        404:
+          description: No such profile
+        405:
+          description: Invalid profile
+        409:
+          description: EMail already in use
+
+  /PS/profiles/{id}/name:
+    parameters:
+      - name: id
+        in: path
+        description: ID of the profile
+        required: true
+        schema:
+          type: integer
+    get:
+      description: Return a single name
+      responses:
+        200:
+          description: The profile.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Martin"
+        404:
+          description: Such a profile doesn't exist.
+    put:
+      description: Update the name of a profile.
+      requestBody:
+        description: The new name
+        content:
+          text/plain:
+            schema:
+              type: string
+            example: "Martin"
+        required: true
+      responses:
+        200:
+          description: Profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        404:
+          description: No such profile
+
+  /PS/profiles/{id}/email:
+    parameters:
+      - name: id
+        in: path
+        description: ID of the profile
+        required: true
+        schema:
+          type: integer
+    get:
+      description: Return a single email
+      responses:
+        200:
+          description: The email of the profile.
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: email
+              example: "martin@example.com"
+        404:
+          description: Such a profile doesn't exist.
+    put:
+      description: Update the email of a profile.
+      requestBody:
+        description: The new email
+        content:
+          text/plain:
+            schema:
+              type: string
+              format: email
+            example: "martin@example.com"
+        required: true
+      responses:
+        200:
+          description: Profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        404:
+          description: No such profile
+        409:
+          description: EMail already in use
+
+  /PS/profiles/{id}/description:
+    parameters:
+      - name: id
+        in: path
+        description: ID of the profile
+        required: true
+        schema:
+          type: integer
+    get:
+      description: Return a single description
+      responses:
+        200:
+          description: The profile description.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "A normal profile"
+        404:
+          description: Such a profile doesn't exist.
+    put:
+      description: Update the description of a profile.
+      requestBody:
+        description: The new description
+        content:
+          text/plain:
+            schema:
+              type: string
+            example: "A new description"
+        required: true
+      responses:
+        200:
+          description: Profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        404:
+          description: No such profile
+
+
+components:
+  schemas:
+    Profile:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 4
+        name:
+          type: string
+          example: "Hans"
+        description:
+          type: string
+          example: "A profile"
+        email:
+          type: string
+          format: email
+          example: "hans@example.com"
+      required:
+        - name
+        - email
+      example:
+        id: 5
+        name: "Michael"
+        description: "First user"
+        email: "test@example.com"
+
