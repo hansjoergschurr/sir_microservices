@@ -9,6 +9,7 @@ import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.ConnectException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,6 +23,20 @@ public class ProfileExceptionController {
     String profileNotFoundHandler(ProfileNotFoundException ex) {
         logger.trace(ex.getMessage());
         return ex.getMessage();
+    }
+
+    @ExceptionHandler(AuthServiceAPIExpection.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    String authServiceAPI(AuthServiceAPIExpection ex) {
+        logger.error("Service error: " + ex.getMessage());
+        return ex.getMessage();
+    }
+
+    @ExceptionHandler(ConnectException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    String connectionError(ConnectException ex) {
+        logger.error("Service error: " + ex.getMessage());
+        return "Service error: " + ex.getMessage();
     }
 
     @ExceptionHandler(EmailInUseException.class)

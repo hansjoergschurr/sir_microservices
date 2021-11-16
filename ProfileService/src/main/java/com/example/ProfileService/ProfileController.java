@@ -2,9 +2,13 @@ package com.example.ProfileService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import javax.validation.Valid;
+import javax.validation.constraints.Null;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -15,6 +19,9 @@ public class ProfileController {
     private final Map<Long, Profile> profiles =
             new HashMap<>();
     private final Set<String> emails = new HashSet<>();
+
+    @Value("${service.authentication}")
+    private String auth_service_url;
 
     private final Logger logger = LoggerFactory.getLogger(ProfileController.class);
     @GetMapping("/PS/profiles")
@@ -32,6 +39,13 @@ public class ProfileController {
             throw new EmailInUseException(profile.getEmail());
         long new_id = counter.incrementAndGet();
         profile.setId(new_id);
+
+       AuthServiceUser auth_service_user = new AuthServiceUser(new_id);
+       RestTemplate restTemplate = new RestTemplate();
+       restTemplate.put(
+               auth_service_url + "/AS/users",
+               auth_service_user);
+
         profiles.put(new_id, profile);
         emails.add(profile.getEmail());
         logger.info(String.format("Profile created: [%d] %s.",
@@ -73,8 +87,21 @@ public class ProfileController {
     @DeleteMapping("/PS/profiles/{id}")
     @CrossOrigin
     public void profile_delete(
-            @PathVariable(value = "id") Long id) {
+            @PathVariable(value = "id") Long id,
+            @RequestHeader(value = "X-Token") String token) {
         logger.trace(String.format("DELETE /PS/profiles/%d", id));
+
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders header = new HttpHeaders();
+        header.add("X-Token", token);
+        HttpEntity<String> entity = new HttpEntity<String>("", header);
+        ResponseEntity<Long> response = restTemplate.exchange(
+                auth_service_url + "/AS/token",
+                HttpMethod.GET, entity, Long.class);
+        Long token_user = response.getBody();
+        if (!Objects.equals(token_user, id))
+            throw new RuntimeException();
+
         if (!profiles.containsKey(id))
             throw new ProfileNotFoundException(id);
         Profile profile = profiles.get(id);
