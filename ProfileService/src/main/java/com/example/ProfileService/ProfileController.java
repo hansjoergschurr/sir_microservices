@@ -5,10 +5,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import javax.validation.Valid;
-import javax.validation.constraints.Null;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -84,24 +84,31 @@ public class ProfileController {
         return profile;
     }
 
+    // Throws an exception if the token is not valid or for a different user
+    private void checkTokenAgainstUser(String token, Long user_id) {
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders header = new HttpHeaders();
+        header.add("X-Token", token);
+        HttpEntity<String> entity = new HttpEntity("", header);
+        try {
+            ResponseEntity<Long> response = restTemplate.exchange(
+                    auth_service_url + "/AS/token",
+                    HttpMethod.GET, entity, Long.class);
+            Long token_user = response.getBody();
+            if (!Objects.equals(token_user, user_id))
+                throw new InvalidTokenException(user_id, token);
+        } catch (HttpClientErrorException.Unauthorized ex) {
+            throw new InvalidTokenException(user_id, token);
+        }
+    }
+
     @DeleteMapping("/PS/profiles/{id}")
     @CrossOrigin
     public void profile_delete(
             @PathVariable(value = "id") Long id,
             @RequestHeader(value = "X-Token") String token) {
         logger.trace(String.format("DELETE /PS/profiles/%d", id));
-
-        RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders header = new HttpHeaders();
-        header.add("X-Token", token);
-        HttpEntity<String> entity = new HttpEntity<String>("", header);
-        ResponseEntity<Long> response = restTemplate.exchange(
-                auth_service_url + "/AS/token",
-                HttpMethod.GET, entity, Long.class);
-        Long token_user = response.getBody();
-        if (!Objects.equals(token_user, id))
-            throw new RuntimeException();
-
+        checkTokenAgainstUser(token, id);
         if (!profiles.containsKey(id))
             throw new ProfileNotFoundException(id);
         Profile profile = profiles.get(id);
@@ -141,11 +148,13 @@ public class ProfileController {
     @CrossOrigin
     public Profile update_name(
             @PathVariable(value = "id") Long id,
+            @RequestHeader(value = "X-Token") String token,
             @RequestBody String name) {
         logger.trace(String.format("PUT /PS/profiles/%d/name", id));
         logger.trace(String.format("\tnew name: %s.", name));
         if (!profiles.containsKey(id))
             throw new ProfileNotFoundException(id);
+        checkTokenAgainstUser(token, id);
         Profile profile = profiles.get(id);
         logger.trace(String.format("\told name: %s.", profile.getName()));
         profile.setName(name);
@@ -156,11 +165,13 @@ public class ProfileController {
     @CrossOrigin
     public Profile update_description(
             @PathVariable(value = "id") Long id,
+            @RequestHeader(value = "X-Token") String token,
             @RequestBody String description) {
         logger.trace(String.format("PUT /PS/profiles/%d/description", id));
         logger.trace(String.format("\tnew description: %s.", description));
         if (!profiles.containsKey(id))
             throw new ProfileNotFoundException(id);
+        checkTokenAgainstUser(token, id);
         Profile profile = profiles.get(id);
         logger.trace(String.format("\told description: %s.", profile.getDescription()));
         profile.setDescription(description);
@@ -171,11 +182,13 @@ public class ProfileController {
     @CrossOrigin
     public Profile update_email(
             @PathVariable(value = "id") Long id,
+            @RequestHeader(value = "X-Token") String token,
             @RequestBody String email) {
         logger.trace(String.format("PUT /PS/profiles/%d/email", id));
         logger.trace(String.format("\tnew email: %s.", email));
         if (!profiles.containsKey(id))
             throw new ProfileNotFoundException(id);
+        checkTokenAgainstUser(token, id);
         Profile profile = profiles.get(id);
         if (emails.contains(profile.getEmail()))
             throw new EmailInUseException(profile.getEmail());
@@ -185,4 +198,29 @@ public class ProfileController {
         profile.setEmail(email);
         return profile;
     }
+
+    @PostMapping("/PS/login")
+    @CrossOrigin
+    public String login(
+            @RequestParam(value = "email") String email,
+            @RequestBody String password)
+    {
+        if (!emails.contains(email))
+           throw new RuntimeException();
+
+        for (Profile p : profiles.values()) {
+            if (p.getEmail().equals(email)) {
+                RestTemplate restTemplate = new RestTemplate();
+                return restTemplate.postForObject(
+                        String.format(
+                                "%s/AS/users/%d/token",
+                                auth_service_url, p.getId()),
+                        password, String.class);
+            }
+        }
+        throw new RuntimeException();
+
+    }
+
+
 }
