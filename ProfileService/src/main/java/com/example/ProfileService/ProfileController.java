@@ -3,6 +3,7 @@ package com.example.ProfileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
@@ -19,6 +20,12 @@ public class ProfileController {
     private final Map<Long, Profile> profiles =
             new HashMap<>();
     private final Set<String> emails = new HashSet<>();
+
+    private final RestTemplate restTemplate;
+
+    public ProfileController(RestTemplateBuilder restTemplateBuilder) {
+       restTemplate = restTemplateBuilder.build();
+    }
 
     @Value("${service.authentication}")
     private String auth_service_url;
@@ -41,7 +48,6 @@ public class ProfileController {
         profile.setId(new_id);
 
        AuthServiceUser auth_service_user = new AuthServiceUser(new_id);
-       RestTemplate restTemplate = new RestTemplate();
        restTemplate.put(
                auth_service_url + "/AS/users",
                auth_service_user);
@@ -86,7 +92,6 @@ public class ProfileController {
 
     // Throws an exception if the token is not valid or for a different user
     private void checkTokenAgainstUser(String token, Long user_id) {
-        RestTemplate restTemplate = new RestTemplate();
         HttpHeaders header = new HttpHeaders();
         header.add("X-Token", token);
         HttpEntity<String> entity = new HttpEntity("", header);
@@ -205,12 +210,12 @@ public class ProfileController {
             @RequestParam(value = "email") String email,
             @RequestBody String password)
     {
+        // /PS/login?email=test@example.com
         if (!emails.contains(email))
            throw new RuntimeException();
 
         for (Profile p : profiles.values()) {
             if (p.getEmail().equals(email)) {
-                RestTemplate restTemplate = new RestTemplate();
                 return restTemplate.postForObject(
                         String.format(
                                 "%s/AS/users/%d/token",

@@ -25,6 +25,13 @@ public class ProfileExceptionController {
         return ex.getMessage();
     }
 
+    @ExceptionHandler(InvalidTokenException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    String profileNotFoundHandler(InvalidTokenException ex) {
+        logger.trace(ex.getMessage());
+        return ex.getMessage();
+    }
+
     @ExceptionHandler(AuthServiceAPIExpection.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     String authServiceAPI(AuthServiceAPIExpection ex) {

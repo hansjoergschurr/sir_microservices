@@ -1,15 +1,30 @@
 package com.example.ProfileService;
 
+import org.junit.Before;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.client.AutoConfigureMockRestServiceServer;
+import org.springframework.boot.test.autoconfigure.web.client.RestClientTest;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpMethod;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.test.web.client.match.MockRestRequestMatchers;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.MediaType;
+import org.springframework.web.client.RestTemplate;
 
+import static org.springframework.test.web.client.ExpectedCount.manyTimes;
+import static org.springframework.test.web.client.ExpectedCount.once;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withUnauthorizedRequest;
 import static
         org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static
@@ -22,8 +37,12 @@ import static
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@AutoConfigureMockRestServiceServer
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class ProfileServiceApplicationTests {
+
+    @Autowired
+    private MockRestServiceServer server;
 
     @Autowired
     private MockMvc mockMvc;
@@ -36,6 +55,7 @@ class ProfileServiceApplicationTests {
                 .andExpect(content().json("[]"));
     }
 
+    /*
     @Test
     public void repeatedEMailRejectedNewProfile() throws Exception {
         String email = "test@example.com";
@@ -60,7 +80,7 @@ class ProfileServiceApplicationTests {
     }
 
 
-    @Test
+        @Test
     public void putProfileShouldSucceed() throws Exception {
         Profile profile = new
                 Profile(1, "Hans",
@@ -74,7 +94,7 @@ class ProfileServiceApplicationTests {
                 )
                 .andDo(print())
                 .andExpect(status().isOk());
-    }
+    }*/
 
     @Test
     public void shouldReturnErrorOnWrongProfile() throws Exception {
@@ -83,7 +103,7 @@ class ProfileServiceApplicationTests {
                 .andExpect(status().isNotFound());
     }
 
-    @Test
+    /*@Test
     public void profileCanBeAdded() throws Exception {
         Profile profile = new Profile(1, "hallo", "test@example.com", "foo");
 
@@ -100,10 +120,63 @@ class ProfileServiceApplicationTests {
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(content().json(user_json));
+    }*/
+
+    @Test
+    public void putNameShouldCheckToken () throws  Exception {
+        Profile profile = new
+                Profile(1, "Hans",
+                "test@example.com", "foo");
+        String new_name = "Jörg";
+        ObjectMapper objectMapper = new ObjectMapper();
+        String profile_json = objectMapper.writeValueAsString(profile);
+
+        server.expect(once(),
+                        requestTo("http://localhost:8081/AS/users")).andExpect(method(HttpMethod.PUT))
+                .andRespond(withSuccess("1",
+                        MediaType.APPLICATION_JSON));
+
+        server.expect(once(),
+                        requestTo("http://localhost:8081/AS/token")).andExpect(method(HttpMethod.GET))
+                .andExpect(
+                        header("X-Token", "falsetoken"))
+                .andRespond(withUnauthorizedRequest());
+
+        server.expect(once(), requestTo("http://localhost:8081/AS/token")).andExpect(method(HttpMethod.GET))
+                .andExpect(
+                        header("X-Token", "truetoken"))
+                .andRespond(withSuccess("1", MediaType.APPLICATION_JSON));
+
+        this.mockMvc.perform(put("/PS/profiles")
+                .content(profile_json)
+                .contentType(MediaType.APPLICATION_JSON));
+
+        this.mockMvc.perform(put("/PS/profiles/1/name")
+                .header("X-Token", "falsetoken")
+                .content(new_name).contentType(MediaType.TEXT_PLAIN))
+                        .andExpect(status().isUnauthorized());
+
+        this.mockMvc.perform(get("/PS/profiles/1/name"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Hans"));
+
+        this.mockMvc.perform(put("/PS/profiles/1/name")
+                        .header("X-Token", "truetoken")
+                        .content(new_name).contentType(MediaType.TEXT_PLAIN))
+                .andExpect(status().isOk());
     }
 
     @Test
     public void putNameShouldChangeName () throws Exception {
+        server.expect(once(),
+                        requestTo("http://localhost:8081/AS/users"))
+                .andExpect(method(HttpMethod.PUT))
+                .andRespond(withSuccess("1", MediaType.APPLICATION_JSON));
+
+        server.expect(manyTimes(),
+                        requestTo("http://localhost:8081/AS/token")).andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("1", MediaType.APPLICATION_JSON));
+
         Profile profile = new
                 Profile(1, "Hans",
                 "test@example.com", "foo");
@@ -117,8 +190,10 @@ class ProfileServiceApplicationTests {
 
         this.mockMvc.perform(put("/PS/profiles")
                         .content(profile_json)
+                        .header("X-Token", "testtoken")
                         .contentType(MediaType.APPLICATION_JSON));
         this.mockMvc.perform(put("/PS/profiles/1/name")
+                .header("X-Token", "testtoken")
                 .content(new_name).contentType(MediaType.TEXT_PLAIN));
         this.mockMvc.perform(get("/PS/profiles/1/name"))
                 .andExpect(status().isOk())
