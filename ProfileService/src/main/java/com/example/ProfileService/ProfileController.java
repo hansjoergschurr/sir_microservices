@@ -1,10 +1,17 @@
 package com.example.ProfileService;
 
+import org.apache.kafka.clients.admin.NewTopic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.*;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.config.TopicBuilder;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -35,6 +42,8 @@ public class ProfileController {
     @CrossOrigin
     public Collection<Profile> profiles() {
         logger.trace("GET /PS/profiles");
+        long test=1;
+        send_message_for_profile(test, "foo");
         return profiles.values();
     }
     @PutMapping("/PS/profiles")
@@ -227,5 +236,23 @@ public class ProfileController {
 
     }
 
+    @Bean
+    public NewTopic topic() {
+        return TopicBuilder.name("profile-changes")
+                .partitions(1)
+                .build();
+    }
+
+    @KafkaListener(id = "profile-listener", topics = "profile-changes")
+    public void listen(String in) {
+        logger.info(in);
+    }
+
+    @Autowired
+    private KafkaTemplate<String, String> template;
+
+    private void send_message_for_profile(Long profile_id, String message) {
+        template.send("profile-changes", profile_id.toString(), message);
+    }
 
 }
